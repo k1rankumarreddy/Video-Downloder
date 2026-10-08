@@ -1,27 +1,30 @@
 import os
 import uuid
-import threading
 
-from flask import (
-    Flask,
-    request,
-    jsonify,
-    send_from_directory
-)
-
+from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
-
 import yt_dlp
 
 
+# =========================================================
+# Flask application
+# =========================================================
+
 app = Flask(__name__)
 
+# Allow your GitHub Pages frontend to communicate
+# with this backend.
 CORS(app)
 
 
-# Folder where downloaded videos are stored
+# =========================================================
+# Download folder
+# =========================================================
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DOWNLOAD_FOLDER = os.path.join(
-    os.path.dirname(__file__),
+    BASE_DIR,
     "downloads"
 )
 
@@ -31,16 +34,15 @@ os.makedirs(
 )
 
 
-# --------------------------------------------------
-# Helpers
-# --------------------------------------------------
+# =========================================================
+# Detect platform
+# =========================================================
 
 def detect_platform(url):
 
-    if (
-        "youtube.com" in url
-        or "youtu.be" in url
-    ):
+    url = url.lower()
+
+    if "youtube.com" in url or "youtu.be" in url:
         return "YouTube"
 
     if "instagram.com" in url:
@@ -49,24 +51,18 @@ def detect_platform(url):
     return None
 
 
-def is_instagram(url):
+# =========================================================
+# Get video
+# =========================================================
 
-    return "instagram.com" in url
-
-
-# --------------------------------------------------
-# Get Video
-# --------------------------------------------------
-
-@app.route(
-    "/api/video",
-    methods=["POST"]
-)
+@app.route("/api/video", methods=["POST"])
 def get_video():
 
-    data = request.get_json(
-        silent=True
-    )
+    # ---------------------------------------------
+    # Read JSON request
+    # ---------------------------------------------
+
+    data = request.get_json(silent=True)
 
     if not data:
 
@@ -75,19 +71,24 @@ def get_video():
         }), 400
 
 
-    url = data.get("url", "").strip()
+    # ---------------------------------------------
+    # Get URL
+    # ---------------------------------------------
 
+    url = data.get("url", "").strip()
 
     if not url:
 
         return jsonify({
-            "error": "URL is required."
+            "error": "Please provide a video URL."
         }), 400
 
 
-    platform =
-        detect_platform(url)
+    # ---------------------------------------------
+    # Detect platform
+    # ---------------------------------------------
 
+    platform = detect_platform(url)
 
     if not platform:
 
@@ -98,13 +99,10 @@ def get_video():
 
 
     # ---------------------------------------------
-    # Unique ID
+    # Create unique filename
     # ---------------------------------------------
 
-    video_id = str(
-        uuid.uuid4()
-    )
-
+    video_id = str(uuid.uuid4())
 
     output_template = os.path.join(
         DOWNLOAD_FOLDER,
@@ -113,55 +111,55 @@ def get_video():
 
 
     # ---------------------------------------------
-    # yt-dlp options
+    # yt-dlp configuration
     # ---------------------------------------------
 
     ydl_opts = {
 
-        "outtmpl":
-            output_template,
+        "outtmpl": output_template,
 
-        "format":
-            "bv*+ba/b",
+        # Prefer MP4-compatible video/audio.
+        # Falls back to a single available format.
+        "format": "bv*+ba/b",
 
-        "merge_output_format":
-            "mp4",
+        # Merge video and audio into MP4 when possible.
+        "merge_output_format": "mp4",
 
-        "noplaylist":
-            True,
+        # Do not download playlists.
+        "noplaylist": True,
 
-        "quiet":
-            True,
+        # Keep server output clean.
+        "quiet": True,
 
-        "no_warnings":
-            True,
+        "no_warnings": True,
 
-        "restrictfilenames":
-            True,
+        # Safer filenames.
+        "restrictfilenames": True,
 
-        "max_filesize":
-            500 * 1024 * 1024
+        # Maximum file size: 500 MB.
+        "max_filesize": 500 * 1024 * 1024
     }
 
 
+    # =====================================================
+    # Download
+    # =====================================================
+
     try:
 
-        with yt_dlp.YoutubeDL(
-            ydl_opts
-        ) as ydl:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
 
-            info =
-                ydl.extract_info(
-                    url,
-                    download=True
-                )
+            info = ydl.extract_info(
+                url,
+                download=True
+            )
 
 
-        # -----------------------------------------
-        # Find generated file
-        # -----------------------------------------
+        # ---------------------------------------------
+        # Find downloaded file
+        # ---------------------------------------------
 
-        possible_files = []
+        downloaded_file = None
 
         for filename in os.listdir(
             DOWNLOAD_FOLDER
@@ -171,26 +169,21 @@ def get_video():
                 video_id + "."
             ):
 
-                possible_files.append(
-                    filename
-                )
+                downloaded_file = filename
+                break
 
 
-        if not possible_files:
+        if not downloaded_file:
 
             return jsonify({
                 "error":
-                    "Video was retrieved but the file could not be found."
+                    "The video was retrieved, but the downloaded file could not be found."
             }), 500
 
 
-        filename =
-            possible_files[0]
-
-
-        # -----------------------------------------
-        # Title
-        # -----------------------------------------
+        # ---------------------------------------------
+        # Video title
+        # ---------------------------------------------
 
         title = info.get(
             "title",
@@ -198,9 +191,9 @@ def get_video():
         )
 
 
-        # -----------------------------------------
-        # Response
-        # -----------------------------------------
+        # ---------------------------------------------
+        # Return result to frontend
+        # ---------------------------------------------
 
         return jsonify({
 
@@ -211,33 +204,56 @@ def get_video():
             "platform": platform,
 
             "video_url":
-                "/api/video-file/" + filename
-
+                "/api/video-file/" + downloaded_file
         })
 
 
-    except yt_dlp.utils.DownloadError as e:
+    # =====================================================
+    # Download error
+    # =====================================================
 
-        error_text =
-            str(e).lower()
+    except yt_dlp.utils.DownloadError as error:
+
+        error_text = str(error).lower()
+
+        print(
+            "yt-dlp error:",
+            str(error)
+        )
 
 
-        # -----------------------------------------
-        # Instagram inaccessible/private
-        # -----------------------------------------
+        # ---------------------------------------------
+        # Instagram inaccessible/private content
+        # ---------------------------------------------
 
-        if is_instagram(url):
+        if platform == "Instagram":
 
-            if (
+            private_or_unavailable = (
+
                 "private" in error_text
+
                 or
+
                 "login required" in error_text
+
                 or
+
                 "requested content is not available"
                 in error_text
+
                 or
-                "unable to download" in error_text
-            ):
+
+                "content is not available"
+                in error_text
+
+                or
+
+                "unable to download"
+                in error_text
+            )
+
+
+            if private_or_unavailable:
 
                 return jsonify({
                     "error":
@@ -245,31 +261,39 @@ def get_video():
                 }), 403
 
 
+        # ---------------------------------------------
+        # General error
+        # ---------------------------------------------
+
         return jsonify({
             "error":
                 "Unable to retrieve this video. Make sure the URL is valid and the content is publicly accessible."
         }), 400
 
 
-    except Exception as e:
+    # =====================================================
+    # Unexpected error
+    # =====================================================
+
+    except Exception as error:
 
         print(
             "Server error:",
-            str(e)
+            str(error)
         )
 
         return jsonify({
             "error":
-                "An unexpected error occurred."
+                "An unexpected server error occurred."
         }), 500
 
 
-# --------------------------------------------------
-# Serve video
-# --------------------------------------------------
+# =========================================================
+# Serve downloaded video
+# =========================================================
 
 @app.route(
-    "/api/video-file/<filename>",
+    "/api/video-file/<path:filename>",
     methods=["GET"]
 )
 def video_file(filename):
@@ -281,30 +305,47 @@ def video_file(filename):
     )
 
 
-# --------------------------------------------------
+# =========================================================
 # Health check
-# --------------------------------------------------
+# =========================================================
 
-@app.route(
-    "/"
-)
+@app.route("/", methods=["GET"])
 def home():
 
     return jsonify({
+
         "status": "running",
+
         "service":
-            "Personal Video Downloader"
+            "Personal Video Downloader",
+
+        "message":
+            "Backend is working."
     })
 
 
-# --------------------------------------------------
+# =========================================================
 # Start server
-# --------------------------------------------------
+# =========================================================
 
 if __name__ == "__main__":
 
+    # Hosting platforms normally provide PORT
+    # through an environment variable.
+    #
+    # If PORT doesn't exist, use 5000 locally.
+
+    port = int(
+        os.environ.get(
+            "PORT",
+            5000
+        )
+    )
+
+
     app.run(
+
         host="0.0.0.0",
-        port=5000,
-        debug=True
+
+        port=port
     )
