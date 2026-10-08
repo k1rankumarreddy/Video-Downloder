@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>My Video Downloader</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div class="logo">
+            <div class="logo-icon">▶</div>
+            <h1>Video Downloader</h1>
+        </div>
+
+        <p class="subtitle">
+            Download videos you own or are authorized to download
+        </p>
+
+        <div class="download-box">
+
+            <label for="videoUrl">
+                YouTube / Instagram URL
+            </label>
+
+            <div class="input-row">
+
+                <input
+                    type="url"
+                    id="videoUrl"
+                    placeholder="Paste YouTube or Instagram link..."
+                    autocomplete="off"
+                >
+
+                <button id="getVideoBtn">
+                    Get Video
+                </button>
+
+            </div>
+
+            <div id="loading" class="loading hidden">
+                <div class="spinner"></div>
+                <span>Getting video...</span>
+            </div>
+
+            <div id="message" class="message hidden"></div>
+
+        </div>
+
+
+        <!-- Video Result -->
+
+        <div id="videoResult" class="video-result hidden">
+
+            <div class="video-card">
+
+                <video
+                    id="videoPlayer"
+                    controls
+                    playsinline
+                ></video>
+
+                <div class="video-info">
+
+                    <h2 id="videoTitle">
+                        Video
+                    </h2>
+
+                    <p id="videoPlatform"></p>
+
+                </div>
+
+                <button
+                    id="downloadBtn"
+                    class="download-btn"
+                >
+                    ↓ Download Video
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <footer>
+        Personal-use downloader
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
