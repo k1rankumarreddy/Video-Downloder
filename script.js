@@ -1,4 +1,4 @@
-const API_URL = "https://k1rankumarreddy.github.io/Video-Downloder";
+const API_URL = "https://video-downloader-nbeb.onrender.com";
 
 
 const videoUrlInput =
