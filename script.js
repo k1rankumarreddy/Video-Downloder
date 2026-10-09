@@ -150,8 +150,19 @@ getVideoBtn.addEventListener(
                 );
 
 
-            const data =
-                await response.json();
+            const responseText = await response.text();
+
+let data;
+
+try {
+    data = JSON.parse(responseText);
+} catch (error) {
+    console.error("Unexpected server response:", responseText);
+
+    throw new Error(
+        `Server returned HTML or invalid JSON. HTTP status: ${response.status}`
+    );
+}
 
 
             if (!response.ok) {
