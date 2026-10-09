@@ -71,6 +71,9 @@ def detect_platform(url):
 
 @app.route("/api/video", methods=["POST"])
 def get_video():
+    print("DEBUG: API endpoint reached", flush=True)
+    print("DEBUG: Method:", request.method, flush=True)
+    print("DEBUG: Origin:", request.headers.get("Origin"), flush=True)
 
     # ---------------------------------------------
     # Read JSON request
