@@ -1,4 +1,3 @@
-
 import os
 import uuid
 
@@ -10,17 +9,16 @@ app = Flask(__name__)
 
 FRONTEND_ORIGIN = "https://k1rankumarreddy.github.io"
 
-# Apply CORS to API routes, including video-file requests.
 CORS(
     app,
     resources={
         r"/api/*": {
-            "origins": [FRONTEND_ORIGIN]
+            "origins": [FRONTEND_ORIGIN],
+            "methods": ["GET", "POST", "OPTIONS"],
+            "allow_headers": ["Content-Type"],
         }
     },
-    allow_headers=["Content-Type"],
-    methods=["GET", "POST", "OPTIONS"],
-    max_age=600,
+    always_send=True,
 )
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -28,54 +26,47 @@ DOWNLOAD_FOLDER = os.path.join(BASE_DIR, "downloads")
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
 
-@app.route("/", methods=["GET"])
-def home():
-    return jsonify({
-        "status": "running",
-        "service": "Personal Video Downloader",
-        "message": "Backend is working."
-    })
+def detect_platform(url):
+    if "youtube.com" in url or "youtu.be" in url:
+        return "YouTube"
+
+    if "instagram.com" in url:
+        return "Instagram"
+
+    return None
 
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
 def get_video():
-    # Explicitly answer browser preflight requests.
     if request.method == "OPTIONS":
         return "", 204
 
-    print("DEBUG: /api/video reached", flush=True)
-    print("DEBUG: Origin:", request.headers.get("Origin"), flush=True)
-
-    data = request.get_json(silent=True)
-    if not data:
-        return jsonify({"error": "Invalid JSON request."}), 400
-
+    data = request.get_json(silent=True) or {}
     url = data.get("url", "").strip()
+
     if not url:
         return jsonify({"error": "Please provide a video URL."}), 400
 
-    url_lower = url.lower()
-    if "youtube.com" in url_lower or "youtu.be" in url_lower:
-        platform = "YouTube"
-    elif "instagram.com" in url_lower:
-        platform = "Instagram"
-    else:
+    platform = detect_platform(url)
+
+    if not platform:
         return jsonify({
             "error": "Only YouTube and Instagram URLs are supported."
         }), 400
 
     video_id = str(uuid.uuid4())
+
     output_template = os.path.join(
-        DOWNLOAD_FOLDER, video_id + ".%(ext)s"
+        DOWNLOAD_FOLDER,
+        video_id + ".%(ext)s"
     )
 
     ydl_opts = {
         "outtmpl": output_template,
-        "format": "best[ext=mp4]/best",
+        "format": "best",
         "noplaylist": True,
         "quiet": True,
         "no_warnings": True,
-        "restrictfilenames": True,
         "max_filesize": 500 * 1024 * 1024,
     }
 
@@ -85,15 +76,15 @@ def get_video():
 
         downloaded_file = next(
             (
-                filename for filename in os.listdir(DOWNLOAD_FOLDER)
-                if filename.startswith(video_id + ".")
+                name for name in os.listdir(DOWNLOAD_FOLDER)
+                if name.startswith(video_id + ".")
             ),
-            None,
+            None
         )
 
         if not downloaded_file:
             return jsonify({
-                "error": "Downloaded file could not be found."
+                "error": "Downloaded video file was not found."
             }), 500
 
         return jsonify({
@@ -103,31 +94,31 @@ def get_video():
             "video_url": "/api/video-file/" + downloaded_file,
         })
 
-    except yt_dlp.utils.DownloadError as error:
-        print("yt-dlp error:", str(error), flush=True)
+    except Exception as error:
+        app.logger.exception("Video retrieval failed")
+
         return jsonify({
-            "error": "Unable to retrieve this video. Check the URL and access permissions."
+            "error": "Unable to retrieve this video. Check that the URL is valid and publicly accessible."
         }), 400
 
-    except Exception as error:
-        print("Server error:", repr(error), flush=True)
-        return jsonify({
-            "error": "An unexpected server error occurred."
-        }), 500
 
-
-@app.route("/api/video-file/<path:filename>", methods=["GET"])
+@app.route("/api/video-file/<path:filename>", methods=["GET", "OPTIONS"])
 def video_file(filename):
-    if os.path.basename(filename) != filename:
-        return jsonify({"error": "Invalid filename."}), 400
+    if request.method == "OPTIONS":
+        return "", 204
 
-    return send_from_directory(
-        DOWNLOAD_FOLDER,
-        filename,
-        as_attachment=False,
-    )
+    return send_from_directory(DOWNLOAD_FOLDER, filename)
+
+
+@app.route("/", methods=["GET"])
+def home():
+    return jsonify({
+        "status": "running",
+        "service": "Personal Video Downloader",
+        "message": "Backend is working.",
+    })
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", "5000"))
+    port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
