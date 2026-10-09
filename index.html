@@ -15,86 +15,67 @@
 
 <body>
 
-    <div class="container">
+    <main class="container">
 
-        <div class="logo">
-            <div class="logo-icon">▶</div>
+        <header>
             <h1>Video Downloader</h1>
-        </div>
+            <p>YouTube and Instagram video tools</p>
+        </header>
 
-        <p class="subtitle">
-            Download videos you own or are authorized to download
-        </p>
-
-        <div class="download-box">
+        <section class="card">
 
             <label for="videoUrl">
-                YouTube / Instagram URL
+                Paste your video URL
             </label>
 
-            <div class="input-row">
+            <input
+                type="url"
+                id="videoUrl"
+                placeholder="Paste a YouTube or Instagram URL"
+                autocomplete="url"
+            >
 
-                <input
-                    type="url"
-                    id="videoUrl"
-                    placeholder="Paste YouTube or Instagram link..."
-                    autocomplete="off"
-                >
+            <button id="getVideoBtn">
+                Get Video
+            </button>
 
-                <button id="getVideoBtn">
-                    Get Video
-                </button>
+            <p id="message" class="message hidden"></p>
 
+            <div id="loading" class="hidden">
+                Processing your video. Please wait...
             </div>
 
-            <div id="loading" class="loading hidden">
-                <div class="spinner"></div>
-                <span>Getting video...</span>
-            </div>
+            <section id="videoResult" class="hidden">
 
-            <div id="message" class="message hidden"></div>
+                <h2 id="videoTitle"></h2>
 
-        </div>
-
-
-        <!-- Video Result -->
-
-        <div id="videoResult" class="video-result hidden">
-
-            <div class="video-card">
+                <p id="videoPlatform"></p>
 
                 <video
                     id="videoPlayer"
                     controls
                     playsinline
+                    preload="metadata"
                 ></video>
 
-                <div class="video-info">
-
-                    <h2 id="videoTitle">
-                        Video
-                    </h2>
-
-                    <p id="videoPlatform"></p>
-
-                </div>
-
-                <button
+                <a
                     id="downloadBtn"
-                    class="download-btn"
+                    class="download-button"
+                    href="#"
+                    download
                 >
-                    ↓ Download Video
-                </button>
+                    Download Video
+                </a>
 
-            </div>
+            </section>
 
-        </div>
+        </section>
 
-    </div>
+        <footer>
+            <p>Use only for content you are authorized to download.</p>
+        </footer>
 
-    <footer>
-        Personal-use downloader
-    </footer>
+    </main>
 
     <script src="script.js"></script>
 
