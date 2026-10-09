@@ -131,7 +131,7 @@ getVideoBtn.addEventListener(
 
 
         try {
-
+            console.log("Sending request to:", `${API_URL}/api/video`);
             const response =
                 await fetch(
                     `${API_URL}/api/video`,
@@ -147,9 +147,8 @@ getVideoBtn.addEventListener(
                             url: url
                         })
                     }
-                );
-
-
+                    );
+            console.log("Response received:", response.status);
             const responseText = await response.text();
 
 let data;
