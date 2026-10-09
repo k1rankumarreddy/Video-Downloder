@@ -15,18 +15,6 @@ app = Flask(__name__)
 # Allow your GitHub Pages frontend to communicate
 # with this backend.
 #CORS(app)
-'''CORS(
-    app,
-    resources={
-        r"/api/*": {
-            "origins": [
-                "https://k1rankumarreddy.github.io"
-            ]
-        }
-    },
-    methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type"]
-)'''
 
 CORS(
     app,
