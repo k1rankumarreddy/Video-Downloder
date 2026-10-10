@@ -1,4 +1,4 @@
 Flask>=3.1,<4
 flask-cors>=6,<7
-yt-dlp
+yt-dlp[default]
 gunicorn
