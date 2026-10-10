@@ -117,7 +117,7 @@ getVideoBtn.addEventListener("click", async () => {
         const response = await fetch(
             `${API_BASE_URL}/api/video`,
             {
-                method: "GET",
+                method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
