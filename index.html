@@ -1,55 +1,46 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-
-    <title>My Video Downloader</title>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0d1117">
+    <title>Personal Video Downloader</title>
     <link rel="stylesheet" href="style.css">
 </head>
-
 <body>
-
     <main class="container">
-
-        <header>
+        <header class="header">
+            <div class="logo">VD</div>
             <h1>Video Downloader</h1>
-            <p>YouTube and Instagram video tools</p>
+            <p>Retrieve and preview accessible videos</p>
         </header>
 
         <section class="card">
-
-            <label for="videoUrl">
-                Paste your video URL
-            </label>
+            <label for="videoUrl">Video URL</label>
 
             <input
                 type="url"
                 id="videoUrl"
                 placeholder="Paste a YouTube or Instagram URL"
                 autocomplete="url"
+                required
             >
 
-            <button id="getVideoBtn">
+            <button id="getVideoBtn" type="button">
                 Get Video
             </button>
 
-            <p id="message" class="message hidden"></p>
-
-            <div id="loading" class="hidden">
-                Processing your video. Please wait...
+            <div id="loading" class="loading hidden">
+                <span class="spinner"></span>
+                <span>Processing video. Please wait...</span>
             </div>
 
-            <section id="videoResult" class="hidden">
+            <p id="message" class="message hidden" role="status"></p>
 
-                <h2 id="videoTitle"></h2>
-
-                <p id="videoPlatform"></p>
+            <section id="videoResult" class="result hidden">
+                <h2 id="videoTitle">Video</h2>
+                <p id="videoPlatform" class="platform"></p>
 
                 <video
                     id="videoPlayer"
@@ -58,26 +49,19 @@
                     preload="metadata"
                 ></video>
 
-                <a
-                    id="downloadBtn"
-                    class="download-button"
-                    href="#"
-                    download
-                >
+                <a id="downloadBtn" class="download-button" href="#">
                     Download Video
                 </a>
-
             </section>
-
         </section>
 
         <footer>
-            <p>Use only for content you are authorized to download.</p>
+            <p>
+                Use only for videos you own or are authorized to download.
+            </p>
         </footer>
-
     </main>
 
     <script src="script.js"></script>
-
 </body>
 </html>
