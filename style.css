@@ -1,43 +1,64 @@
+
 * {
     box-sizing: border-box;
+}
+
+:root {
+    color-scheme: dark;
+    font-family: Arial, Helvetica, sans-serif;
 }
 
 body {
     margin: 0;
     min-height: 100vh;
-    font-family: Arial, sans-serif;
-    background: #0d1117;
+    background:
+        radial-gradient(ellipse at top, #1c2541 0%, #0d1117 60%);
     color: #f0f3f6;
     display: flex;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 24px;
 }
 
 .container {
     width: 100%;
-    max-width: 600px;
+    max-width: 620px;
 }
 
-header {
+.header {
     text-align: center;
-    margin-bottom: 25px;
+    margin-bottom: 26px;
 }
 
-header h1 {
-    font-size: 32px;
-    margin-bottom: 8px;
+.logo {
+    display: inline-flex;
+    width: 54px;
+    height: 54px;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    background: #635bff;
+    font-size: 20px;
+    font-weight: bold;
 }
 
-header p {
+h1 {
+    margin: 16px 0 8px;
+    font-size: clamp(26px, 5vw, 36px);
+}
+
+.header p,
+footer,
+.platform {
     color: #aab4c3;
 }
 
 .card {
-    background: #161b22;
-    padding: 25px;
+    padding: 26px;
+    background: rgba(22, 27, 34, 0.96);
     border: 1px solid #30363d;
-    border-radius: 16px;
+    border-radius: 18px;
+    box-shadow: 0 18px 50px rgba(0, 0, 0, 0.25);
 }
 
 label {
@@ -48,29 +69,41 @@ label {
 
 input {
     width: 100%;
-    padding: 14px;
-    margin-bottom: 15px;
-    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 14px;
     border: 1px solid #444c56;
+    border-radius: 9px;
     background: #0d1117;
     color: white;
     font-size: 16px;
 }
 
+input:focus {
+    outline: 2px solid #635bff;
+    outline-offset: 1px;
+}
+
 button,
 .download-button {
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 8px;
+    min-height: 48px;
+    padding: 13px 16px;
+    border: 0;
+    border-radius: 9px;
     background: #635bff;
     color: white;
-    text-align: center;
+    text-decoration: none;
     font-size: 16px;
     font-weight: bold;
-    text-decoration: none;
     cursor: pointer;
+}
+
+button:hover,
+.download-button:hover {
+    filter: brightness(1.12);
 }
 
 button:disabled {
@@ -85,47 +118,60 @@ button:disabled {
 
 .message {
     padding: 12px;
-    margin-top: 15px;
     border-radius: 8px;
     overflow-wrap: anywhere;
 }
 
 .message.error {
-    background: #3d171b;
     color: #ffb3b8;
+    background: #3d171b;
 }
 
 .message.success {
-    background: #143321;
     color: #a5f3b8;
+    background: #143321;
 }
 
-#loading {
+.loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
     margin-top: 18px;
     color: #c5c9d3;
-    text-align: center;
 }
 
-#videoResult {
+.spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #606776;
+    border-top-color: #ffffff;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.result {
     margin-top: 25px;
 }
 
-#videoTitle {
-    font-size: 20px;
+.result h2 {
     overflow-wrap: anywhere;
-}
-
-#videoPlatform {
-    color: #aab4c3;
+    font-size: 20px;
 }
 
 video {
     display: block;
     width: 100%;
     max-height: 450px;
-    background: black;
-    border-radius: 10px;
     margin-top: 15px;
+    border-radius: 10px;
+    background: #000;
 }
 
 .hidden {
@@ -133,18 +179,18 @@ video {
 }
 
 footer {
+    margin-top: 20px;
     text-align: center;
     font-size: 12px;
-    color: #9da7b3;
-    margin-top: 20px;
+    line-height: 1.5;
 }
 
 @media (max-width: 480px) {
-    header h1 {
-        font-size: 26px;
+    body {
+        padding: 15px;
     }
 
     .card {
-        padding: 18px;
+        padding: 19px;
     }
 }
