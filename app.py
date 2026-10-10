@@ -1,14 +1,21 @@
-import os
-import uuid
-import logging
 
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS
+import os
+import re
+import shutil
+import tempfile
+import logging
+import mimetypes
+from urllib.parse import urlparse
+
 import yt_dlp
+from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS
 
 app = Flask(__name__)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
-# Allow requests from your GitHub Pages website.
+logging.basicConfig(level=logging.INFO)
+
 FRONTEND_ORIGIN = "https://k1rankumarreddy.github.io"
 
 CORS(
@@ -18,168 +25,172 @@ CORS(
             "origins": [FRONTEND_ORIGIN],
             "methods": ["GET", "POST", "OPTIONS"],
             "allow_headers": ["Content-Type"],
+            "expose_headers": [
+                "X-Video-Title",
+                "X-Video-Platform"
+            ],
         }
     },
 )
 
-app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
-logging.basicConfig(level=logging.INFO)
+def validate_url(url):
+    try:
+        parsed = urlparse(url)
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_FOLDER = os.path.join(BASE_DIR, "downloads")
+        if parsed.scheme != "https":
+            return None
 
-os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
+        host = (parsed.hostname or "").lower()
 
+        youtube_hosts = {
+            "youtube.com",
+            "www.youtube.com",
+            "m.youtube.com",
+            "music.youtube.com",
+            "youtu.be",
+        }
 
-def detect_platform(url):
-    url = url.lower()
+        instagram_hosts = {
+            "instagram.com",
+            "www.instagram.com",
+            "m.instagram.com",
+        }
 
-    if "youtube.com/" in url or "youtu.be/" in url:
-        return "YouTube"
+        if host in youtube_hosts:
+            return "YouTube"
 
-    if "instagram.com/" in url:
-        return "Instagram"
+        if host in instagram_hosts:
+            return "Instagram"
 
-    return None
+        return None
+
+    except Exception:
+        return None
 
 
 @app.route("/", methods=["GET"])
 def home():
     return jsonify({
         "status": "running",
-        "service": "Personal Video Downloader",
-        "message": "Backend is working."
+        "service": "Personal Video Downloader API",
+        "health": "/api/health"
     })
 
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({
-        "status": "ok"
-    })
+    return jsonify({"status": "ok"})
 
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
 def get_video():
-
-    # Respond to the browser's CORS preflight.
     if request.method == "OPTIONS":
         return "", 204
 
-    data = request.get_json(silent=True)
+    data = request.get_json(silent=True) or {}
+    url = data.get("url", "")
 
-    if not data:
-        return jsonify({
-            "error": "Please send a valid JSON request."
-        }), 400
-
-    url = data.get("url", "").strip()
-
-    if not url:
+    if not isinstance(url, str) or not url.strip():
         return jsonify({
             "error": "Please provide a video URL."
         }), 400
 
-    platform = detect_platform(url)
+    url = url.strip()
+    platform = validate_url(url)
 
     if not platform:
         return jsonify({
-            "error": "Only YouTube and Instagram URLs are supported."
+            "error": (
+                "Enter a valid HTTPS YouTube or Instagram URL."
+            )
         }), 400
 
-    video_id = str(uuid.uuid4())
-
-    output_template = os.path.join(
-        DOWNLOAD_FOLDER,
-        video_id + ".%(ext)s"
-    )
-
-    options = {
-        "outtmpl": output_template,
-        "format": "best[ext=mp4]/best",
-        "noplaylist": True,
-        "quiet": True,
-        "no_warnings": True,
-        "restrictfilenames": True,
-        "max_filesize": 100 * 1024 * 1024,
-        "socket_timeout": 30,
-        "retries": 1,
-    }
+    temp_dir = tempfile.mkdtemp(prefix="video_")
 
     try:
+        output_template = os.path.join(
+            temp_dir, "video.%(ext)s"
+        )
+
+        options = {
+            "outtmpl": output_template,
+            "format": "best[ext=mp4]/best",
+            "noplaylist": True,
+            "quiet": True,
+            "no_warnings": True,
+            "cachedir": False,
+            "socket_timeout": 20,
+            "retries": 1,
+            "extractor_retries": 1,
+            "max_filesize": 100 * 1024 * 1024,
+        }
+
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(
                 url,
                 download=True
             )
 
-        filename = next(
-            (
-                name
-                for name in os.listdir(DOWNLOAD_FOLDER)
-                if name.startswith(video_id + ".")
-            ),
-            None
+        files = [
+            os.path.join(temp_dir, name)
+            for name in os.listdir(temp_dir)
+            if os.path.isfile(os.path.join(temp_dir, name))
+        ]
+
+        if not files:
+            raise RuntimeError("No video file was produced.")
+
+        video_path = max(files, key=os.path.getsize)
+
+        if os.path.getsize(video_path) > 100 * 1024 * 1024:
+            raise RuntimeError(
+                "The video exceeds the 100 MB limit."
+            )
+
+        content_type = (
+            mimetypes.guess_type(video_path)[0]
+            or "application/octet-stream"
         )
 
-        if not filename:
-            return jsonify({
-                "error": "The downloaded video file could not be found."
-            }), 500
+        title = str(info.get("title") or "Video")
+        safe_title = re.sub(
+            r"[^A-Za-z0-9 _.-]", "",
+            title
+        ).strip()[:100] or "Video"
 
-        return jsonify({
-            "success": True,
-            "title": info.get("title", "Video"),
-            "platform": platform,
-            "video_url": "/api/video-file/" + filename
-        })
+        response = send_file(
+            video_path,
+            mimetype=content_type,
+            as_attachment=False,
+            download_name=safe_title
+        )
+
+        response.headers["X-Video-Title"] = safe_title
+        response.headers["X-Video-Platform"] = platform
+
+        # Remove the temporary file after the response is sent.
+        response.call_on_close(
+            lambda: shutil.rmtree(
+                temp_dir, ignore_errors=True
+            )
+        )
+
+        return response
 
     except Exception:
-        app.logger.exception("Video retrieval failed")
+        app.logger.exception("Video processing failed")
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
         return jsonify({
             "error": (
-                "Unable to retrieve this video. "
-                "Check the URL and ensure the content is accessible."
+                "Could not retrieve this video. It may be "
+                "unsupported, restricted, too large, or "
+                "unavailable to the server."
             )
         }), 400
 
 
-@app.route(
-    "/api/video-file/<path:filename>",
-    methods=["GET", "OPTIONS"]
-)
-def video_file(filename):
-
-    if request.method == "OPTIONS":
-        return "", 204
-
-    # Only serve files generated by this application.
-    if os.path.basename(filename) != filename:
-        return jsonify({
-            "error": "Invalid filename."
-        }), 400
-
-    if not filename.startswith(tuple(
-        name.split(".")[0]
-        for name in os.listdir(DOWNLOAD_FOLDER)
-    )):
-        return jsonify({
-            "error": "File not found."
-        }), 404
-
-    return send_from_directory(
-        DOWNLOAD_FOLDER,
-        filename,
-        as_attachment=False
-    )
-
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", "8080"))
-
-    app.run(
-        host="0.0.0.0",
-        port=port
-    )
+    app.run(host="0.0.0.0", port=port)
