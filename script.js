@@ -1,5 +1,5 @@
 
-const API_BASE_URL = "https://video-downloader-nbeb.onrender.com";
+const API_BASE_URL = "https://video-downloder-nbeb.onrender.com/";
 
 const urlInput = document.getElementById("videoUrl");
 const getVideoBtn = document.getElementById("getVideoBtn");
