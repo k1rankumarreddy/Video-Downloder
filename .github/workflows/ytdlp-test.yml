@@ -1,0 +1,54 @@
+
+name: Test yt-dlp
+
+on:
+  workflow_dispatch:
+    inputs:
+      video_url:
+        description: Public YouTube or Instagram video URL you are authorized to download
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install yt-dlp
+        run: python -m pip install --upgrade "yt-dlp[default]"
+
+      - name: Check video extraction
+        env:
+          VIDEO_URL: ${{ inputs.video_url }}
+        run: |
+          python - <<'PY'
+          import os
+          import yt_dlp
+
+          print("yt-dlp version:", yt_dlp.version.__version__)
+          options = {
+              "quiet": True,
+              "no_warnings": False,
+              "skip_download": True,
+              "noplaylist": True,
+          }
+
+          try:
+              with yt_dlp.YoutubeDL(options) as ydl:
+                  info = ydl.extract_info(os.environ["VIDEO_URL"], download=False)
+                  print("Extraction successful")
+                  print("Title:", info.get("title", "Unknown"))
+                  print("Extractor:", info.get("extractor_key", "Unknown"))
+          except Exception as exc:
+              print("Extraction failed:", type(exc).__name__, str(exc)[:500])
+              raise SystemExit(1)
+          PY
