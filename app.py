@@ -1,4 +1,3 @@
-
 import os
 import re
 import shutil
@@ -11,12 +10,8 @@ import yt_dlp
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
-print("Installed yt-dlp version:", yt_dlp.version.__version__)
 app = Flask(__name__)
-app.logger.info(
-    "Installed yt-dlp version: %s",
-    yt_dlp.version.__version__
-)
+app.logger.info("Installed yt-dlp version: %s", yt_dlp.version.__version__)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
 logging.basicConfig(level=logging.INFO)
@@ -85,7 +80,10 @@ def home():
 
 @app.route("/api/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok"})
+    return jsonify({
+        "status": "ok",
+        "yt_dlp_version": yt_dlp.version.__version__
+    })
 
 
 @app.route("/api/video", methods=["POST", "OPTIONS"])
@@ -106,17 +104,13 @@ def get_video():
 
     if not platform:
         return jsonify({
-            "error": (
-                "Enter a valid HTTPS YouTube or Instagram URL."
-            )
+            "error": "Enter a valid HTTPS YouTube or Instagram URL."
         }), 400
 
     temp_dir = tempfile.mkdtemp(prefix="video_")
 
     try:
-        output_template = os.path.join(
-            temp_dir, "video.%(ext)s"
-        )
+        output_template = os.path.join(temp_dir, "video.%(ext)s")
 
         options = {
             "outtmpl": output_template,
@@ -124,10 +118,7 @@ def get_video():
             "noplaylist": True,
             "quiet": True,
             "no_warnings": False,
-            "skip_download": True,
-            "noplaylist": True,
             "js_runtimes": {"deno": {}},
-            "verbose": True,
             "cachedir": False,
             "socket_timeout": 30,
             "retries": 1,
@@ -136,10 +127,7 @@ def get_video():
         }
 
         with yt_dlp.YoutubeDL(options) as downloader:
-            info = downloader.extract_info(
-                url,
-                download=True
-            )
+            info = downloader.extract_info(url, download=True)
 
         files = [
             os.path.join(temp_dir, name)
@@ -153,9 +141,7 @@ def get_video():
         video_path = max(files, key=os.path.getsize)
 
         if os.path.getsize(video_path) > 100 * 1024 * 1024:
-            raise RuntimeError(
-                "The video exceeds the 100 MB limit."
-            )
+            raise RuntimeError("The video exceeds the 100 MB limit.")
 
         content_type = (
             mimetypes.guess_type(video_path)[0]
@@ -163,10 +149,7 @@ def get_video():
         )
 
         title = str(info.get("title") or "Video")
-        safe_title = re.sub(
-            r"[^A-Za-z0-9 _.-]", "",
-            title
-        ).strip()[:100] or "Video"
+        safe_title = re.sub(r"[^A-Za-z0-9 _.-]", "", title).strip()[:100] or "Video"
 
         response = send_file(
             video_path,
@@ -178,11 +161,8 @@ def get_video():
         response.headers["X-Video-Title"] = safe_title
         response.headers["X-Video-Platform"] = platform
 
-        # Remove the temporary file after the response is sent.
         response.call_on_close(
-            lambda: shutil.rmtree(
-                temp_dir, ignore_errors=True
-            )
+            lambda: shutil.rmtree(temp_dir, ignore_errors=True)
         )
 
         return response
