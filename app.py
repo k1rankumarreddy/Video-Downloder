@@ -11,7 +11,7 @@ import yt_dlp
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
-
+print("Installed yt-dlp version:", yt_dlp.version.__version__)
 app = Flask(__name__)
 app.logger.info(
     "Installed yt-dlp version: %s",
