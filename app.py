@@ -11,7 +11,12 @@ import yt_dlp
 from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 
+
 app = Flask(__name__)
+app.logger.info(
+    "Installed yt-dlp version: %s",
+    yt_dlp.version.__version__
+)
 app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
 
 logging.basicConfig(level=logging.INFO)
@@ -117,10 +122,10 @@ def get_video():
             "outtmpl": output_template,
             "format": "best[ext=mp4]/best",
             "noplaylist": True,
-            "quiet": True,
-            "no_warnings": True,
+            "quiet": False,
+            "no_warnings": False,
             "cachedir": False,
-            "socket_timeout": 20,
+            "socket_timeout": 30,
             "retries": 1,
             "extractor_retries": 1,
             "max_filesize": 100 * 1024 * 1024,
