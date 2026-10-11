@@ -124,6 +124,7 @@ def get_video():
             "noplaylist": True,
             "quiet": False,
             "no_warnings": False,
+            "verbose": True,
             "cachedir": False,
             "socket_timeout": 30,
             "retries": 1,
