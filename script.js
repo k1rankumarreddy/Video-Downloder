@@ -114,13 +114,6 @@ getVideoBtn.addEventListener("click", async () => {
     loading.classList.remove("hidden");
 
     try {
-        //tried by me
-        async function makeRequest() {
-            const payload = {
-                url: {url},
-                session_token': 'QUZZTVljRWlsRUpYcVJxN3h1ZWxDNGVaeGpZeHxBSTVJdTV2aUF2T3lFRnVXTTZtTnlNR19mTGJlYm0wNEZ2ZXVWb3p4M0pEUFZ2Z3JfamNuNUZyTDhNcGEtU0pTT001NzZQNmtTbWlneFk2UDdwZFZuektmTnJhX2ptUFBHVUE='
-                sessionID: "g.a000DgngmqGYWqCRhtzz1ucoIuMDKAm4svH5DpUt216B5xeA8T_P1L-WH864hU6_jRcMYJtqoQACgYKAS4SARUSFQHGX2Mi6U6La6_uc1f2ZGOdXXD5dxoVAUF8yKqwNtPSVlBKMuy_faEtVHUv0076"
-            };
         const response = await fetch(
             `${API_BASE_URL}/api/video`,
             {
