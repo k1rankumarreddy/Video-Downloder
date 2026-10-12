@@ -1,3 +1,5 @@
+import base64
+import binascii
 import logging
 import mimetypes
 import os
@@ -12,6 +14,11 @@ from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
 
 logging.basicConfig(level=logging.INFO)
+
+# Render's native Python runtime may keep Deno in the user's home directory.
+deno_dir = os.path.expanduser("~/.deno/bin")
+if os.path.isdir(deno_dir) and deno_dir not in os.environ.get("PATH", "").split(os.pathsep):
+    os.environ["PATH"] = deno_dir + os.pathsep + os.environ.get("PATH", "")
 
 app = Flask(__name__)
 app.logger.info("Installed yt-dlp version: %s", yt_dlp.version.__version__)
@@ -40,21 +47,14 @@ def validate_url(url):
         parsed = urlparse(url)
         if parsed.scheme != "https":
             return None
-
         host = (parsed.hostname or "").lower()
         youtube_hosts = {
-            "youtube.com",
-            "www.youtube.com",
-            "m.youtube.com",
-            "music.youtube.com",
-            "youtu.be",
+            "youtube.com", "www.youtube.com", "m.youtube.com",
+            "music.youtube.com", "youtu.be",
         }
         instagram_hosts = {
-            "instagram.com",
-            "www.instagram.com",
-            "m.instagram.com",
+            "instagram.com", "www.instagram.com", "m.instagram.com",
         }
-
         if host in youtube_hosts:
             return "YouTube"
         if host in instagram_hosts:
@@ -64,15 +64,47 @@ def validate_url(url):
         return None
 
 
-def friendly_download_error(exc, platform):
-    """Return useful, non-sensitive guidance without exposing raw server details."""
-    details = str(exc).lower()
+def write_optional_youtube_cookies(temp_dir):
+    """Read an optional base64-encoded Netscape cookie file from a secret env var.
 
+    Never put cookie contents in source control or logs. Cookies are account
+    credentials; use a dedicated account and rotate/remove the secret if exposed.
+    """
+    encoded = os.environ.get("YOUTUBE_COOKIES_B64", "").strip()
+    if not encoded:
+        return None
+
+    try:
+        cookie_bytes = base64.b64decode(encoded, validate=True)
+        cookie_text = cookie_bytes.decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError, ValueError) as exc:
+        raise RuntimeError(
+            "YOUTUBE_COOKIES_B64 is not valid base64-encoded UTF-8 cookie text."
+        ) from exc
+
+    if not cookie_text.lstrip().startswith("# Netscape HTTP Cookie File") and not cookie_text.lstrip().startswith("# HTTP Cookie File"):
+        raise RuntimeError(
+            "YOUTUBE_COOKIES_B64 must contain a Netscape-format cookies.txt file."
+        )
+
+    cookie_path = os.path.join(temp_dir, "youtube-cookies.txt")
+    with open(cookie_path, "w", encoding="utf-8") as cookie_file:
+        cookie_file.write(cookie_text)
+    try:
+        os.chmod(cookie_path, 0o600)
+    except OSError:
+        pass
+    return cookie_path
+
+
+def friendly_download_error(exc, platform):
+    details = str(exc).lower()
     if "sign in to confirm you're not a bot" in details or "confirm you’re not a bot" in details:
         return (
-            "YouTube rejected this server's request as automated traffic. "
-            "The downloader runtime has been updated, but YouTube may still "
-            "block cloud-hosting IPs. Try again later or test another public video."
+            "YouTube is blocking requests from this hosting server as automated traffic. "
+            "Updating yt-dlp and JavaScript support cannot guarantee a fix for an IP-based block. "
+            "If you control the video, check the Render logs and configure a valid cookie secret "
+            "only if you are authorized to use that account; otherwise try again later."
         )
     if "private" in details or "login required" in details or "authentication" in details:
         return (
@@ -88,8 +120,8 @@ def friendly_download_error(exc, platform):
     if "403" in details or "forbidden" in details:
         return "The platform denied the media request. The link may have expired or the server may be blocked."
     return (
-        "Could not retrieve this video. It may be unsupported, restricted, "
-        "too large, or temporarily unavailable to the server."
+        "Could not retrieve this video. It may be unsupported, restricted, too large, "
+        "or temporarily unavailable to the server."
     )
 
 
@@ -109,6 +141,7 @@ def health():
         "yt_dlp_version": yt_dlp.version.__version__,
         "deno_available": shutil.which("deno") is not None,
         "ffmpeg_available": os.path.isfile(imageio_ffmpeg.get_ffmpeg_exe()),
+        "youtube_cookie_secret_configured": bool(os.environ.get("YOUTUBE_COOKIES_B64")),
     })
 
 
@@ -119,25 +152,19 @@ def get_video():
 
     data = request.get_json(silent=True) or {}
     url = data.get("url", "")
-
     if not isinstance(url, str) or not url.strip():
         return jsonify({"error": "Please provide a video URL."}), 400
 
     url = url.strip()
     platform = validate_url(url)
     if not platform:
-        return jsonify({
-            "error": "Enter a valid HTTPS YouTube or Instagram URL.",
-        }), 400
+        return jsonify({"error": "Enter a valid HTTPS YouTube or Instagram URL."}), 400
 
     temp_dir = tempfile.mkdtemp(prefix="video_")
-
     try:
         output_template = os.path.join(temp_dir, "video.%(ext)s")
         options = {
             "outtmpl": output_template,
-            # Prefer MP4 video + M4A audio (for better quality), then fall
-            # back to a single-file MP4 or any compatible single-file format.
             "format": "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
             "merge_output_format": "mp4",
             "ffmpeg_location": imageio_ffmpeg.get_ffmpeg_exe(),
@@ -152,6 +179,13 @@ def get_video():
             "max_filesize": MAX_VIDEO_BYTES,
         }
 
+        # Cookies are optional and only used for YouTube. Keep them in a
+        # per-request temporary file and remove them with the download folder.
+        if platform == "YouTube":
+            cookie_path = write_optional_youtube_cookies(temp_dir)
+            if cookie_path:
+                options["cookiefile"] = cookie_path
+
         with yt_dlp.YoutubeDL(options) as downloader:
             info = downloader.extract_info(url, download=True)
 
@@ -159,7 +193,7 @@ def get_video():
             os.path.join(temp_dir, name)
             for name in os.listdir(temp_dir)
             if os.path.isfile(os.path.join(temp_dir, name))
-            and not name.endswith((".part", ".ytdl"))
+            and not name.endswith((".part", ".ytdl", ".txt"))
         ]
         if not files:
             raise RuntimeError("No video file was produced.")
@@ -168,9 +202,7 @@ def get_video():
         if os.path.getsize(video_path) > MAX_VIDEO_BYTES:
             raise RuntimeError("The video exceeds the 100 MB limit.")
 
-        content_type = (
-            mimetypes.guess_type(video_path)[0] or "application/octet-stream"
-        )
+        content_type = mimetypes.guess_type(video_path)[0] or "application/octet-stream"
         title = str(info.get("title") or "Video")
         safe_title = re.sub(r"[^A-Za-z0-9 _.-]", "", title).strip()[:100] or "Video"
 
@@ -182,9 +214,7 @@ def get_video():
         )
         response.headers["X-Video-Title"] = safe_title
         response.headers["X-Video-Platform"] = platform
-        response.call_on_close(
-            lambda: shutil.rmtree(temp_dir, ignore_errors=True)
-        )
+        response.call_on_close(lambda: shutil.rmtree(temp_dir, ignore_errors=True))
         return response
 
     except Exception as exc:
