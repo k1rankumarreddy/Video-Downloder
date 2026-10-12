@@ -186,8 +186,34 @@ def get_video():
             if cookie_path:
                 options["cookiefile"] = cookie_path
 
-        with yt_dlp.YoutubeDL(options) as downloader:
-            info = downloader.extract_info(url, download=True)
+        try:
+            with yt_dlp.YoutubeDL(options) as downloader:
+                info = downloader.extract_info(url, download=True)
+        except Exception as first_error:
+            # YouTube's default player clients can be challenged on some hosts.
+            # Make one low-volume fallback attempt with alternate clients; this
+            # cannot bypass an IP-level block, but can recover client-specific
+            # LOGIN_REQUIRED responses. Avoid pairing the TV client with cookies.
+            error_text = str(first_error).lower()
+            bot_challenge = (
+                "sign in to confirm you're not a bot" in error_text
+                or "confirm you’re not a bot" in error_text
+                or "login_required" in error_text
+            )
+            if platform != "YouTube" or not bot_challenge:
+                raise
+
+            fallback_options = dict(options)
+            fallback_clients = ["web_safari"] if fallback_options.get("cookiefile") else ["tv", "web_safari"]
+            fallback_options["extractor_args"] = {
+                "youtube": {"player_client": fallback_clients}
+            }
+            app.logger.warning(
+                "Default YouTube player client was challenged; retrying once with clients: %s",
+                ",".join(fallback_clients),
+            )
+            with yt_dlp.YoutubeDL(fallback_options) as downloader:
+                info = downloader.extract_info(url, download=True)
 
         files = [
             os.path.join(temp_dir, name)
