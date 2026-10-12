@@ -7,6 +7,13 @@ on:
         description: Public YouTube or Instagram video URL you are authorized to download
         required: true
         type: string
+  push:
+    branches: [main]
+    paths:
+      - "app.py"
+      - "requirements.txt"
+      - "build.sh"
+      - ".github/workflows/ytdlp-test.yml"
 
 permissions:
   contents: read
@@ -24,7 +31,6 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Install application dependencies
         run: |
@@ -46,7 +52,7 @@ jobs:
 
       - name: Check video extraction
         env:
-          VIDEO_URL: ${{ inputs.video_url }}
+          VIDEO_URL: ${{ inputs.video_url || 'https://youtube.com/shorts/nGj6xSk-h5c?si=PsAoh3il7e9JTTde' }}
         run: |
           python - <<'PY'
           import os
